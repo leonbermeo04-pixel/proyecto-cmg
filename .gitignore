@@ -1,0 +1,9 @@
+﻿YotubeOpenGL/.vs/
+YotubeOpenGL/Debug/
+YotubeOpenGL/x64/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.dll
+*.lib

@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="YotubeOpenGL.vcxproj" Id="6fe43b9b-c641-45e3-918a-b7694ef5f54d" />
+</Solution>
