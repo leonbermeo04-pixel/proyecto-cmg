@@ -1,5 +1,10 @@
-// YotubeOpenGL.cpp : Este archivo contiene la función "main". La ejecución del programa comienza y termina ahí.
-//
+// YotubeOpenGL.cpp : Archivo principal.
+// - Inicializa GLFW/GLAD y crea la ventana
+// - Define los vértices, buffers y shaders
+// - Carga la textura
+// - Ejecuta el loop de renderizado donde la cámara recorre una curva Bézier
+// - Limpia recursos al terminar
+
 
 // YotubeOpenGL.cpp
 #include <iostream>
@@ -27,6 +32,7 @@ int main()
 {
     // ======================= GLFW =======================
 
+    // Inicializar GLFW (creación de contexto OpenGL y ventana)
     glfwInit();
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -35,6 +41,7 @@ int main()
 
     // ======================= WINDOW =======================
 
+    // Crear ventana GLFW con contexto OpenGL 3.3 Core
     GLFWwindow* window = glfwCreateWindow(width, height, "YouTubeOpenGL", NULL, NULL);
 
     if (!window)
@@ -48,6 +55,7 @@ int main()
 
     // ======================= GLAD =======================
 
+    // Cargar punteros a funciones OpenGL con GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Error inicializando GLAD\n";
@@ -58,11 +66,12 @@ int main()
 
     // ======================= DEPTH TEST =======================
 
+    // Activar prueba de profundidad para que los fragmentos se rendericen correctamente
     glEnable(GL_DEPTH_TEST);
 
-    // ======================= VERTEX STRUCTURE (misma salida, diferente estructura) =======================
-    // Definimos una estructura Vertex y usamos std::vector<Vertex> para almacenar
-    // los datos en lugar de un arreglo plano.
+    // ======================= VÉRTICES Y BUFFERES =======================
+    // Definimos la estructura Vertex (posición, color, UV) y creamos un vector
+    // con 24 vértices (4 por cara) para tener coordenadas UV independientes por cara.
     struct Vertex {
         float pos[3];
         float color[3];
@@ -107,7 +116,8 @@ int main()
         {{ 0.5f, -0.5f,  0.5f}, {1,1,1}, {0.0f, 1.0f}}
     };
 
-    // ======================= INDICES (6 caras * 2 tri * 3 indices = 36) =======================
+    // Índices para dibujar los 12 triángulos del cubo (36 índices)
+    // Cada grupo de 6 índices corresponde a una cara (2 triángulos)
     unsigned int indices[] =
     {
         // FRONT
@@ -125,11 +135,11 @@ int main()
     };
 
     // ======================= SHADER =======================
-
+    // Crea y compila el programa shader a partir de los ficheros vertex/fragment
     Shader shaderProgram("default.vert", "default.frag");
 
-    // ======================= VAO VBO EBO =======================
-
+    // ======================= CREAR VAO / VBO / EBO =======================
+    // Configuramos VAO, subimos datos al VBO y los índices al EBO
     VAO VAO1;
     VAO1.Bind();
 
@@ -150,7 +160,8 @@ int main()
     VBO1.Unbind();
     EBO1.Unbind();
 
-    // ======================= TEXTURE =======================
+    // ======================= TEXTURA =======================
+    // Cargamos la imagen con stb_image y la subimos como textura OpenGL
 
     int widthImg, heightImg, numColCh;
 
@@ -166,6 +177,7 @@ int main()
 
     if (bytes == nullptr)
     {
+        // Mensaje si la imagen no se pudo cargar (ruta/archivo incorrecto)
         std::cout << "NO SE CARGO LA IMAGEN\n";
     }
     else
@@ -181,7 +193,7 @@ int main()
 
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    // PNG transparency
+    // Activar blending para soportar transparencias en PNG
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -229,23 +241,20 @@ int main()
 
     glUniform1i(tex0Uni, 0);
 
-    // ======================= CAMERA =======================
-
+    // ======================= CÁMARA =======================
+    // Creamos la cámara y preparamos variables para el recorrido por la curva Bézier
     Camera camera(width, height, glm::vec3(0.0f, 0.0f, 2.0f));
-
-    // Parámetros para el recorrido por la curva Bézier dentro del loop
     double lastTime = glfwGetTime();
-    float bezierT = 0.0f;
+    float bezierT = 0.0f; // parámetro t para la curva (0..1)
     const float bezierSpeed = 0.15f; // velocidad moderada en unidades t por segundo
 
     // ======================= LOOP =======================
 
     while (!glfwWindowShouldClose(window))
     {
-		//  color para limpiar la pantalla cada frame (RGBA)
-
+        // ======================= FRAME INICIO =======================
+        // Limpiar buffer de color y profundidad
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shaderProgram.Activate();
@@ -267,36 +276,28 @@ int main()
             glm::value_ptr(model)
         );
 
-        // Camera
-
+        // ======================= CÁMARA Y ANIMACIÓN =======================
+        // Procesar entradas (teclado/ratón)
         camera.Inputs(window);
 
-        // Avanza t en función del tiempo para un movimiento suave por la curva
+        // Avanza el parámetro t según el tiempo transcurrido para movimiento suave
         double currentTime = glfwGetTime();
         double delta = currentTime - lastTime;
         lastTime = currentTime;
 
         bezierT += bezierSpeed * static_cast<float>(delta);
-        // envolver para loop continuo
+        // Envolver t para mantener el movimiento en bucle continuo
         bezierT = std::fmod(bezierT, 1.0f);
         if (bezierT < 0.0f) bezierT += 1.0f;
 
-        // Actualiza la posición de la cámara usando la función existente
+        // Actualiza la posición de la cámara sobre la curva usando la función existente
         camera.Position = camera.evaluateBezier(bezierT);
-        // Mantener la orientación mirando al centro (Matrix usa lookAt hacia el modelo)
+        // Camera::Matrix usa lookAt hacia el origen para asegurar que el modelo permanezca en vista
+        camera.Matrix(45.0f, 0.1f, 100.0f, shaderProgram, "camMatrix");
 
-        camera.Matrix(
-            45.0f,
-            0.1f,
-            100.0f,
-            shaderProgram,
-            "camMatrix"
-        );
-
-        // Texture
-
+        // ======================= TEXTURA Y DIBUJADO =======================
+        // Enlazar textura 0 y dibujar el VAO/EBO
         glActiveTexture(GL_TEXTURE0);
-
         glBindTexture(GL_TEXTURE_2D, texture);
 
         // Draw
@@ -315,20 +316,15 @@ int main()
         glfwPollEvents();
     }
 
-    // ======================= CLEANUP =======================
-
+    // ======================= LIMPIEZA =======================
+    // Eliminar recursos reservados antes de salir
     VAO1.Delete();
     VBO1.Delete();
     EBO1.Delete();
-
     glDeleteTextures(1, &texture);
-
     shaderProgram.Delete();
-
     glfwDestroyWindow(window);
-
     glfwTerminate();
-
     return 0;
 }
 // Ejecutar programa: Ctrl + F5 o menú Depurar > Iniciar sin depurar
